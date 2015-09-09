@@ -21,6 +21,13 @@
 
 #define GET_TIME_MSEC   timeGetTime
 
+const TCHAR szSettings[] = "Settings";
+const TCHAR szHeaderBytes[] = "HeaderBytes";
+const TCHAR szTrailerBytes[] = "TrailerBytes";
+const TCHAR szLengthMSB[] = "LengthMSB";
+const TCHAR szLengthLSB[] = "LengthLSB";
+TCHAR szProfile[MAX_PATH];
+
 typedef struct list_item
 {
     DWORD time;
@@ -206,10 +213,6 @@ CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
     m_pDataFile = NULL;
 
 	m_bLog = TRUE;
-	m_uHeaderBytes = 4;
-	m_uTrailerBytes = 0;
-	m_uLengthMSB = 2;
-	m_uLengthLSB = 3;
 }
 
 // Destructor
@@ -312,10 +315,17 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     CheckDlgButton(m_hWnd, IDC_SET_BAUD, TRUE);
     SetDlgItemInt(m_hWnd, IDC_COUNT, DEFAULT_COUNT, FALSE);
 
-	SetDlgItemInt(m_hWnd, IDC_HEADER_BYTES, m_uHeaderBytes, FALSE);
-	SetDlgItemInt(m_hWnd, IDC_TRAILER_BYTES, m_uTrailerBytes, FALSE);
-	SetDlgItemInt(m_hWnd, IDC_LENGTH_MSB, m_uLengthMSB, FALSE);
-	SetDlgItemInt(m_hWnd, IDC_LENGTH_LSB, m_uLengthLSB, FALSE);
+	GetModuleFileName(NULL, szProfile, MAX_PATH);
+	int len = lstrlen(szProfile);
+	if (szProfile[len - 4] == '.')
+	{
+		lstrcpy(szProfile + len - 3, "ini");
+	}
+
+	m_uHeaderBytes = GetPrivateProfileInt(szSettings, szHeaderBytes, 4, szProfile);
+	m_uTrailerBytes = GetPrivateProfileInt(szSettings, szTrailerBytes, 0, szProfile);
+	m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
+	m_uLengthLSB =  GetPrivateProfileInt(szSettings, szLengthLSB, 3, szProfile);
 
     CheckDlgButton(m_hWnd, IDC_LOG, m_bLog);
 
@@ -352,7 +362,11 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     UpdateUI();
 
     // Fill in combobox messages
+#ifdef _DEBUG
+    FillCombo("dbgcmd.txt");
+#else
     FillCombo("usbcmd.txt");
+#endif
 
     DoClear();
     return TRUE;
@@ -404,10 +418,12 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
     size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
     if (read == m_uHeaderBytes)
     {
-        size_t length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
-        if (length > 0)
+        short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
+        if (length >= 0)
         {
-            read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length + m_uTrailerBytes, timeout);
+			length += m_uTrailerBytes;
+			if (length > 0)
+				read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length, timeout);
         }
     }
     if (m_bLog && read > 0)
@@ -681,7 +697,6 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
     TRACE2("OnCommand(code=%04x,id=%u\n", code, id);
     int index, result;
     LPCTSTR pszText;
-	BOOL bOK;
 
     switch (id)
     {
@@ -709,11 +724,6 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
         UpdateUI();
         break;
     case IDC_SEND:
-		// Read parameters out of Dialog controls
-		m_uHeaderBytes = GetDlgItemInt(m_hWnd, IDC_HEADER_BYTES, &bOK, FALSE);
-		m_uTrailerBytes = GetDlgItemInt(m_hWnd, IDC_TRAILER_BYTES, &bOK, FALSE);
-		m_uLengthMSB = GetDlgItemInt(m_hWnd, IDC_LENGTH_MSB, &bOK, FALSE);
-		m_uLengthLSB = GetDlgItemInt(m_hWnd, IDC_LENGTH_LSB, &bOK, FALSE);
 		// Start separate thread to transmit/receive messages
         CreateThread(NULL, 0 /*default stacksize*/, SendThread, this, 0/*run after creation*/, &m_dwThreadId);
         break;

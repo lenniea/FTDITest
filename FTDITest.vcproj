@@ -4,6 +4,7 @@
 	Version="9.00"
 	Name="FTDITest"
 	ProjectGUID="{418A0CA7-643A-4587-A4F3-AFC3C6BCC86D}"
+	RootNamespace="FTDITest"
 	TargetFrameworkVersion="0"
 	>
 	<Platforms>
@@ -363,10 +364,6 @@
 			>
 			<File
 				RelativePath="res\FTDITest.ico"
-				>
-			</File>
-			<File
-				RelativePath="icon1.ico"
 				>
 			</File>
 		</Filter>
