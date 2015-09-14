@@ -23,7 +23,9 @@ Correction Mask=0: c1b1 0002 0000
 Capture Frame #0: c182 0002 0000
 Capture Frame #1: c182 0002 0001
 Read Memory F0000000: c1d2 0006 f000 0000 0100
-Read Line 0: c1d2 0006 224C0500 02A0
+Read Line (672): c1d2 0006 224C0500 02A0
+Read Line (1280): c1d2 0006 224C0500 0500
+Read Line (1344): c1d2 0006 224C0500 0540
 Get Frame #0 Addr: c1d6 0004 0000 000b
 Get Frame #1 Addr: c1d6 0004 0001 000b
 Get Onchip Addr: c1d6 0004 0000 000d

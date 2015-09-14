@@ -8,10 +8,14 @@
 #include "ParseHex.h"
 #include "Trace.h"
 
+#ifdef FTD2XX
+    #include "ftd2xx.h"
+#endif
+
 #define ProgressBar_SetRange(hwnd,lo,hi)  SendMessage(hwnd, PBM_SETRANGE, 0, MAKELONG(lo,hi))
 #define ProgressBar_SetPos(hwnd,pos)      SendMessage(hwnd, PBM_SETPOS, pos, 0L)
 
-#define BUF_SIZE        1024
+#define BUF_SIZE        2048
 
 #define DEFAULT_COUNT   100
 #define MAX_COUNT       1024
@@ -57,19 +61,96 @@ void Log_AddItem(HWND hListView, LPVOID pBuffer, size_t count)
     ListView_EnsureVisible(hListView, index, /*bPartial=*/TRUE);
 }
 
-#define STR_MAX                 80
+#define STR_MAX             80
+#define DEFAULT_TIMEOUT     1000
+
+#ifdef FTD2XX
+
+FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
+{
+    FT_HANDLE hDevice;
+
+    if (FT_OpenEx(pszFile, FT_OPEN_BY_SERIAL_NUMBER, &hDevice) != FT_OK)
+        return INVALID_HANDLE_VALUE;
+    return hDevice;
+}
+
+BOOL W32_CloseDevice(FT_HANDLE handle)
+{
+    return FT_Close(handle) == FT_OK;
+}
+
+size_t W32_WriteBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count)
+{
+    DWORD dwWritten = 0;
+    if (hDevice != INVALID_HANDLE_VALUE) 
+    {
+        dwWritten = 0;
+        BOOL bResult = FT_Write(hDevice, pBuffer, count, &dwWritten);
+        TRACE4("W32_WriteBytes(%08x, %u)=%u dwWritten=%u\n", pBuffer, count, bResult, dwWritten);
+    }
+    return dwWritten;
+}
+
+size_t W32_ReadBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD timeout)
+{
+    DWORD tickStart = GET_TIME_MSEC();
+    DWORD dwTotal = 0;
+
+    if (timeout == 0)
+        timeout = DEFAULT_TIMEOUT;
+    
+    /* exit loop after timeout has occurred */
+    do
+    {
+        DWORD dwRead = 0;
+        /*  Read bytes from serial port */
+        if (FT_Read(hDevice, (LPSTR) pBuffer + dwTotal, count - dwTotal, &dwRead) != FT_OK)
+        {
+            DWORD dwError = FT_W32_GetLastError(hDevice);
+            TRACE2("Error reading %08x: %d\n", hDevice, dwError);
+            return dwRead;
+        }
+
+        dwTotal += dwRead;
+
+        if (dwTotal >= count)
+            break;
+    }
+    while (GET_TIME_MSEC() - tickStart <= timeout);
+    return dwTotal;
+}
+
+int QueryCOMPorts(HWND hCombo)
+{
+    FT_STATUS status;
+    DWORD dwNumDevs;
+    
+    status = FT_ListDevices(&dwNumDevs, NULL, FT_LIST_NUMBER_ONLY);
+    if (status != FT_OK)
+        return -1;
+
+    ComboBox_ResetContent(hCombo);
+    for (DWORD index = 0; index < dwNumDevs; ++index)
+    {
+        char szDevice[64];
+
+        status = FT_ListDevices((PVOID) index, szDevice, FT_LIST_BY_INDEX|FT_OPEN_BY_SERIAL_NUMBER);
+        if (status < FT_OK)
+            return -2;
+
+        ComboBox_AddString(hCombo, szDevice);
+    }
+    return dwNumDevs;
+}
+
+#else
+
+typedef HANDLE FT_HANDLE
 
 //
 //  Win32 wrapper functions
 //
-HANDLE W32_OpenFile(LPCTSTR pszFile, DWORD dwShare)
-{
-    return CreateFile(pszFile, GENERIC_READ | GENERIC_WRITE, dwShare,
-                    /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-}
-
-#define DEFAULT_TIMEOUT     1000
-
 BOOL W32_SetupCommPort(HANDLE hDevice, DWORD baud, DWORD timeout)
 {
     COMMTIMEOUTS timeouts;
@@ -105,15 +186,27 @@ BOOL W32_SetupCommPort(HANDLE hDevice, DWORD baud, DWORD timeout)
     return bResult;
 }
 
-void W32_CloseFile(HANDLE& handle)
+FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
 {
-    if (handle != INVALID_HANDLE_VALUE && CloseHandle(handle))
+    TCHAR szPort[STR_MAX];
+    wsprintf(szDevice, "\\\\.\\%s", szDevice);
+
+    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, dwShare,
+                    /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hDevice != INVALID_HANDLE_VALUE)
     {
-        handle = INVALID_HANDLE_VALUE;
+        W32_SetupCommPort(hDevice, dwBaud, DEFAULT_TIMEOUT);
     }
 }
 
-size_t W32_WriteBytes(HANDLE hDevice, LPVOID pBuffer, size_t count)
+BOOL W32_CloseDevice(FT_HANDLE& handle)
+{
+    if (handle != INVALID_HANDLE_VALUE)
+        return CloseHandle(handle);
+    return FALSE;
+}
+
+size_t W32_WriteBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count)
 {
     DWORD dwWritten = 0;
     if (hDevice != INVALID_HANDLE_VALUE) 
@@ -125,7 +218,7 @@ size_t W32_WriteBytes(HANDLE hDevice, LPVOID pBuffer, size_t count)
     return dwWritten;
 }
 
-size_t W32_ReadBytes(HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD timeout)
+size_t W32_ReadBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD timeout)
 {
     DWORD tickStart = GET_TIME_MSEC();
     DWORD dwTotal = 0;
@@ -142,7 +235,7 @@ size_t W32_ReadBytes(HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD timeout
         {
             DWORD dwError = ::GetLastError();
             TRACE2("Error reading %08x: %d\n", hDevice, dwError);
-            return 0;
+            return dwRead;
         }
 
         dwTotal += dwRead;
@@ -153,81 +246,6 @@ size_t W32_ReadBytes(HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD timeout
     while (GET_TIME_MSEC() - tickStart <= timeout);
     return dwTotal;
 }
-
-const UINT baud[] = { 57600, 115200, 230400, 921600, 3000000, 12000000 };
-
-void FillBaudRates(HWND hWndCombo)
-{
-    for (UINT u = 0; u < sizeof(baud) / sizeof(UINT); ++u)
-    {
-        TCHAR szText[STR_MAX];
-        wsprintf(szText, "%u", baud[u]);
-        ComboBox_AddString(hWndCombo, szText);
-    }
-}
-
-
-class CMainDlg : public CAppDialog
-{
-protected:
-    HWND m_hListView;
-    HWND m_hComboBaud;
-    HWND m_hComboPort;
-    HWND m_hComboData;
-    HANDLE m_hDevice;
-    LPBYTE m_pDataFile;
-    BOOL m_bLog;
-    HWND m_hProgress;
-	DWORD m_dwThreadId;
-	UINT m_uRepeat;
-	size_t m_uHeaderBytes;
-	size_t m_uTrailerBytes;
-	size_t m_uLengthMSB;
-	size_t m_uLengthLSB;
-public:
-    CMainDlg(HINSTANCE hInst);
-    ~CMainDlg();
-
-
-    virtual BOOL OnInitDialog(WPARAM wParam, LPARAM lParam);
-    virtual BOOL OnDrawItem(WPARAM wParam, LPDRAWITEMSTRUCT lParam);
-    virtual BOOL OnCommand(WPARAM wId);
-    virtual BOOL OnNotify(WPARAM wId, LPNMHDR nmhdr);
-
-    void EnableControls(BOOL flag);
-    void UpdateUI();
-
-    void CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout);
-    void DoSend(void);
-    void FillCombo(LPCTSTR pszFilename);
-    void DoClear(void);
-    void GetCellRect(int col, LPCRECT pItemRect, LPRECT pCellRect);
-    BOOL DrawListView(LPDRAWITEMSTRUCT lpDIS);
-};
-
-// Constructor
-CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
-{
-    m_hListView = m_hComboPort = m_hComboData = NULL;
-    m_hDevice = INVALID_HANDLE_VALUE;
-    m_pDataFile = NULL;
-
-	m_bLog = TRUE;
-}
-
-// Destructor
-CMainDlg::~CMainDlg()
-{
-    W32_CloseFile(m_hDevice);
-    if (m_pDataFile != NULL)
-    {
-        GlobalFreePtr(m_pDataFile);
-        m_pDataFile = NULL;
-    }
-}
-
-#define LIST_COLS      3
-short   msgColWidth[LIST_COLS] = { 30, 60, 290 };
 
 BOOL IsNumeric(LPCSTR pszString)
 {
@@ -292,6 +310,87 @@ int QueryCOMPorts(HWND hCombo)
     while (dwRet == 0);
     return count;
 }
+
+#endif
+
+const UINT baud[] = { 57600, 115200, 230400, 921600, 3000000, 12000000 };
+
+void FillBaudRates(HWND hWndCombo)
+{
+    for (UINT u = 0; u < sizeof(baud) / sizeof(UINT); ++u)
+    {
+        TCHAR szText[STR_MAX];
+        wsprintf(szText, "%u", baud[u]);
+        ComboBox_AddString(hWndCombo, szText);
+    }
+}
+
+
+class CMainDlg : public CAppDialog
+{
+protected:
+    HWND m_hListView;
+    HWND m_hComboBaud;
+    HWND m_hComboPort;
+    HWND m_hComboData;
+    FT_HANDLE m_hDevice;
+    LPBYTE m_pDataFile;
+    BOOL m_bLog;
+    HWND m_hProgress;
+	DWORD m_dwThreadId;
+	UINT m_uRepeat;
+	size_t m_uHeaderBytes;
+	size_t m_uTrailerBytes;
+	size_t m_uLengthMSB;
+	size_t m_uLengthLSB;
+public:
+    CMainDlg(HINSTANCE hInst);
+    ~CMainDlg();
+
+
+    virtual BOOL OnInitDialog(WPARAM wParam, LPARAM lParam);
+    virtual BOOL OnDrawItem(WPARAM wParam, LPDRAWITEMSTRUCT lParam);
+    virtual BOOL OnCommand(WPARAM wId);
+    virtual BOOL OnNotify(WPARAM wId, LPNMHDR nmhdr);
+
+    void EnableControls(BOOL flag);
+    void UpdateUI();
+
+    void CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout);
+    void DoSend(void);
+    void FillCombo(LPCTSTR pszFilename);
+    void DoClear(void);
+    void GetCellRect(int col, LPCRECT pItemRect, LPRECT pCellRect);
+    BOOL DrawListView(LPDRAWITEMSTRUCT lpDIS);
+};
+
+// Constructor
+CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
+{
+    m_hListView = m_hComboPort = m_hComboData = NULL;
+    m_hDevice = INVALID_HANDLE_VALUE;
+    m_pDataFile = NULL;
+
+	m_bLog = TRUE;
+}
+
+// Destructor
+CMainDlg::~CMainDlg()
+{
+    if (W32_CloseDevice(m_hDevice))
+    {
+        m_hDevice = INVALID_HANDLE_VALUE;
+    }
+    if (m_pDataFile != NULL)
+    {
+        GlobalFreePtr(m_pDataFile);
+        m_pDataFile = NULL;
+    }
+}
+
+#define LIST_COLS      3
+short   msgColWidth[LIST_COLS] = { 30, 60, 290 };
+
 
 BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
 {
@@ -362,7 +461,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     UpdateUI();
 
     // Fill in combobox messages
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(FTD2XX)
     FillCombo("dbgcmd.txt");
 #else
     FillCombo("usbcmd.txt");
@@ -485,7 +584,8 @@ void CMainDlg::DoSend(void)
 
 void CMainDlg::FillCombo(LPCTSTR pszFilename)
 {
-    HANDLE hFile = W32_OpenFile(pszFilename, FILE_SHARE_READ);
+    HANDLE hFile = CreateFile(pszFilename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+                       /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
         DWORD dwSize = GetFileSize(hFile, NULL);
@@ -531,7 +631,7 @@ void CMainDlg::FillCombo(LPCTSTR pszFilename)
             }
 
         }
-        W32_CloseFile(hFile);
+        CloseHandle(hFile);
     }
 }
 
@@ -703,29 +803,25 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
     case IDC_OPEN_CLOSE:
         if (m_hDevice != INVALID_HANDLE_VALUE)
         {
-            W32_CloseFile(m_hDevice);
+            if (W32_CloseDevice(m_hDevice))
+            {
+                m_hDevice = INVALID_HANDLE_VALUE;
+            }
         }
         else
         {
             TCHAR szPort[STR_MAX];
             if (GetDlgItemText(m_hWnd, IDC_PORT, szPort, STR_MAX))
             {
-                TCHAR szDevice[STR_MAX];
-                wsprintf(szDevice, "\\\\.\\%s", szPort);
-
-                m_hDevice = W32_OpenFile(szDevice, 0);
-                if (m_hDevice != INVALID_HANDLE_VALUE)
-                {
-                    DWORD baud = IsDlgButtonChecked(m_hWnd, IDC_SET_BAUD) ? GetDlgItemInt(m_hWnd, IDC_BAUD_RATE, NULL, FALSE) : 0;
-                    W32_SetupCommPort(m_hDevice, baud, DEFAULT_TIMEOUT);
-                }
+                const DWORD baud = IsDlgButtonChecked(m_hWnd, IDC_SET_BAUD) ? GetDlgItemInt(m_hWnd, IDC_BAUD_RATE, NULL, FALSE) : 0;
+                m_hDevice = W32_OpenDevice(szPort, baud);
             }
         }
         UpdateUI();
         break;
     case IDC_SEND:
 		// Start separate thread to transmit/receive messages
-        CreateThread(NULL, 0 /*default stacksize*/, SendThread, this, 0/*run after creation*/, &m_dwThreadId);
+        CreateThread(NULL, /*stacksize=*/ 1000000, SendThread, this, 0/*run after creation*/, &m_dwThreadId);
         break;
     case IDC_CLEAR:
         DoClear();
