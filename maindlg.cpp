@@ -146,7 +146,7 @@ int QueryCOMPorts(HWND hCombo)
 
 #else
 
-typedef HANDLE FT_HANDLE
+typedef HANDLE FT_HANDLE;
 
 //
 //  Win32 wrapper functions
@@ -191,12 +191,13 @@ FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
     TCHAR szPort[STR_MAX];
     wsprintf(szDevice, "\\\\.\\%s", szDevice);
 
-    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, dwShare,
+    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, /*dwShare=*/0,
                     /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDevice != INVALID_HANDLE_VALUE)
     {
         W32_SetupCommPort(hDevice, dwBaud, DEFAULT_TIMEOUT);
     }
+	return hDevice;
 }
 
 BOOL W32_CloseDevice(FT_HANDLE& handle)
