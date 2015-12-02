@@ -15,7 +15,7 @@
 #define ProgressBar_SetRange(hwnd,lo,hi)  SendMessage(hwnd, PBM_SETRANGE, 0, MAKELONG(lo,hi))
 #define ProgressBar_SetPos(hwnd,pos)      SendMessage(hwnd, PBM_SETPOS, pos, 0L)
 
-#define BUF_SIZE        2048
+#define BUF_SIZE        16384
 
 #define DEFAULT_COUNT   100
 #define MAX_COUNT       1024
@@ -69,9 +69,41 @@ void Log_AddItem(HWND hListView, LPVOID pBuffer, size_t count)
 FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
 {
     FT_HANDLE hDevice;
+    FT_STATUS status;
+    ULONG bufsize = 2048;
 
-    if (FT_OpenEx(pszFile, FT_OPEN_BY_SERIAL_NUMBER, &hDevice) != FT_OK)
+    status = FT_OpenEx(pszFile, FT_OPEN_BY_SERIAL_NUMBER, &hDevice);
+    if (status != FT_OK)
         return INVALID_HANDLE_VALUE;
+
+ 
+    if (dwBaud == 0)
+    {
+        // Set Syncrhonous 245 Mode
+        const UINT mask = 0x0000;
+        status = FT_SetBitMode(hDevice, mask, 0x40);
+        if (status != FT_OK)
+        {
+            return INVALID_HANDLE_VALUE;
+        }
+        bufsize = 65536;
+
+        status = FT_SetLatencyTimer(hDevice, 2);
+        if (status != FT_OK)
+        {
+            return INVALID_HANDLE_VALUE;
+        }
+    }
+
+    status = FT_SetUSBParameters(hDevice, bufsize, bufsize);
+    if (status != FT_OK)
+        return INVALID_HANDLE_VALUE;
+
+    status = FT_SetTimeouts(hDevice, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT);
+    if (status != FT_OK)
+        return INVALID_HANDLE_VALUE;
+
+
     return hDevice;
 }
 
@@ -146,7 +178,7 @@ int QueryCOMPorts(HWND hCombo)
 
 #else
 
-typedef HANDLE FT_HANDLE
+typedef HANDLE FT_HANDLE;
 
 //
 //  Win32 wrapper functions
@@ -189,14 +221,15 @@ BOOL W32_SetupCommPort(HANDLE hDevice, DWORD baud, DWORD timeout)
 FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
 {
     TCHAR szPort[STR_MAX];
-    wsprintf(szDevice, "\\\\.\\%s", szDevice);
+    wsprintf(szPort, "\\\\.\\%s", szDevice);
 
-    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, dwShare,
+    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, /*dwShare=*/0L,
                     /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDevice != INVALID_HANDLE_VALUE)
     {
         W32_SetupCommPort(hDevice, dwBaud, DEFAULT_TIMEOUT);
     }
+    return hDevice;
 }
 
 BOOL W32_CloseDevice(FT_HANDLE& handle)
@@ -389,7 +422,7 @@ CMainDlg::~CMainDlg()
 }
 
 #define LIST_COLS      3
-short   msgColWidth[LIST_COLS] = { 30, 60, 290 };
+short   msgColWidth[LIST_COLS] = { 30, 60, 20000 };
 
 
 BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
@@ -539,7 +572,7 @@ ULONG __stdcall SendThread(LPVOID pThis)
 
 void CMainDlg::DoSend(void)
 {
-    TCHAR szText[4096];
+    TCHAR szText[BUF_SIZE];
     BYTE txbuf[BUF_SIZE];
     BYTE rxbuf[BUF_SIZE];
     int count;
@@ -549,11 +582,13 @@ void CMainDlg::DoSend(void)
     {
         LPCTSTR itemdata = (LPCTSTR) ComboBox_GetItemData(m_hComboData, index);
         count = lstrlen(itemdata);
-        memcpy(szText, itemdata, count + 1);
+        if (count > BUF_SIZE - 1)
+            count = BUF_SIZE - 1;
+        strncpy(szText, itemdata, count + 1);
     }
     else
     {
-        count = GetWindowText(m_hComboData, szText, BUF_SIZE);
+        count = GetWindowText(m_hComboData, szText, BUF_SIZE - 1);
     }
 
     if (count > 0)
