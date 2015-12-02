@@ -223,21 +223,13 @@ FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
     TCHAR szPort[STR_MAX];
     wsprintf(szPort, "\\\\.\\%s", szDevice);
 
-<<<<<<< HEAD
     FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, /*dwShare=*/0L,
-=======
-    FT_HANDLE hDevice = CreateFile(szPort, GENERIC_READ | GENERIC_WRITE, /*dwShare=*/0,
->>>>>>> 3e9327e72877b57bbaed0dbe4fbd87e4b7715ef8
                     /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDevice != INVALID_HANDLE_VALUE)
     {
         W32_SetupCommPort(hDevice, dwBaud, DEFAULT_TIMEOUT);
     }
-<<<<<<< HEAD
     return hDevice;
-=======
-	return hDevice;
->>>>>>> 3e9327e72877b57bbaed0dbe4fbd87e4b7715ef8
 }
 
 BOOL W32_CloseDevice(FT_HANDLE& handle)
