@@ -10,6 +10,10 @@
 
 #ifdef FTD2XX
     #include "ftd2xx.h"
+
+#define CBUS_BITBANG    0x20
+#define SYNC_FIFO       0x40
+
 #endif
 
 #define ProgressBar_SetRange(hwnd,lo,hi)  SendMessage(hwnd, PBM_SETRANGE, 0, MAKELONG(lo,hi))
@@ -80,20 +84,33 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
     if (dwBaud == 0)
     {
         // Set Syncrhonous 245 Mode
-        const UINT mask = 0x0000;
-        status = FT_SetBitMode(hDevice, mask, 0x40);
+        status = FT_SetBitMode(hDevice, 0x00, SYNC_FIFO);
         if (status != FT_OK)
         {
             return INVALID_HANDLE_VALUE;
         }
         bufsize = 65536;
 
-        status = FT_SetLatencyTimer(hDevice, 2);
-        if (status != FT_OK)
-        {
-            return INVALID_HANDLE_VALUE;
-        }
     }
+    else
+    {
+        // Set CBUS to output all 0s
+        status = FT_SetBitMode(hDevice, 0xF0, CBUS_BITBANG);
+    }
+
+    // Set 8 data bits, 1 stop bit and no parity
+    status = FT_SetBaudRate(hDevice, dwBaud);
+    if (status != FT_OK)
+        return INVALID_HANDLE_VALUE;
+
+    status = FT_SetDataCharacteristics
+        (hDevice, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE);
+    if (status != FT_OK)
+        return INVALID_HANDLE_VALUE;
+
+    status = FT_SetLatencyTimer(hDevice, 2);
+    if (status != FT_OK)
+        return INVALID_HANDLE_VALUE;
 
     status = FT_SetUSBParameters(hDevice, bufsize, bufsize);
     if (status != FT_OK)
@@ -109,6 +126,8 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
 
 BOOL W32_CloseDevice(FT_HANDLE handle)
 {
+    // Set CBUS back to all inputs
+    FT_STATUS status = FT_SetBitMode(handle, 0x00, CBUS_BITBANG);
     return FT_Close(handle) == FT_OK;
 }
 
@@ -494,7 +513,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     UpdateUI();
 
     // Fill in combobox messages
-#if defined(_DEBUG) && !defined(FTD2XX)
+#if defined(_DEBUG)
     FillCombo("dbgcmd.txt");
 #else
     FillCombo("usbcmd.txt");
@@ -540,7 +559,11 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
 {
     size_t written;
     /* Flush receive buffer */
-    PurgeComm(m_hDevice, PURGE_RXCLEAR);
+#ifdef FTD2XX
+    FT_W32_PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
+#else
+    PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
+#endif
     written = W32_WriteBytes(m_hDevice, txbuf, count);
     if (m_bLog && written > 0)
 	{
