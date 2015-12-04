@@ -131,8 +131,13 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
     return hDevice;
 }
 
-BOOL W32_CloseDevice(FT_HANDLE handle)
+BOOL W32_CloseDevice(FT_HANDLE handle, DWORD dwBaud)
 {
+    if (handle != INVALID_HANDLE_VALUE && dwBaud != 0)
+    {
+        // Set CBUS back to all inputs
+        FT_STATUS status = FT_SetBitMode(handle, 0x00, CBUS_BITBANG);
+    }
     return FT_Close(handle) == FT_OK;
 }
 
@@ -256,7 +261,7 @@ FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
     return hDevice;
 }
 
-BOOL W32_CloseDevice(FT_HANDLE& handle)
+BOOL W32_CloseDevice(FT_HANDLE handle, DWORD dwBaud)
 {
     if (handle != INVALID_HANDLE_VALUE)
         return CloseHandle(handle);
@@ -434,15 +439,7 @@ CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
 // Destructor
 CMainDlg::~CMainDlg()
 {
-#ifdef FTD2XX
-    DWORD dwBaud = GetDlgItemInt(m_hWnd, IDC_BAUD_RATE, NULL, FALSE);
-    if (m_hDevice && dwBaud)
-    {
-        // Set CBUS back to all inputs
-        FT_STATUS status = FT_SetBitMode(m_hDevice, 0x00, CBUS_BITBANG);
-    }
-#endif
-    if (W32_CloseDevice(m_hDevice))
+    if (W32_CloseDevice(m_hDevice, 0))
     {
         m_hDevice = INVALID_HANDLE_VALUE;
     }
@@ -871,7 +868,8 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
     case IDC_OPEN_CLOSE:
         if (m_hDevice != INVALID_HANDLE_VALUE)
         {
-            if (W32_CloseDevice(m_hDevice))
+            DWORD dwBaud = GetDlgItemInt(m_hWnd, IDC_BAUD_RATE, NULL, FALSE);
+            if (W32_CloseDevice(m_hDevice, dwBaud))
             {
                 m_hDevice = INVALID_HANDLE_VALUE;
             }
