@@ -34,7 +34,11 @@ const TCHAR szHeaderBytes[] = "HeaderBytes";
 const TCHAR szTrailerBytes[] = "TrailerBytes";
 const TCHAR szLengthMSB[] = "LengthMSB";
 const TCHAR szLengthLSB[] = "LengthLSB";
+const TCHAR szCmdFile[] = "CmdFile";
+const TCHAR szUsbCmdTxt[] = "usbcmd.txt";
+
 TCHAR szProfile[MAX_PATH];
+TCHAR szFilename[MAX_PATH];
 
 typedef struct list_item
 {
@@ -94,19 +98,23 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
     }
     else
     {
+        // Set 8 data bits, 1 stop bit and no parity
+        status = FT_SetBaudRate(hDevice, dwBaud);
+        if (status != FT_OK)
+            return INVALID_HANDLE_VALUE;
+
+        status = FT_SetDataCharacteristics
+            (hDevice, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE);
+        if (status != FT_OK)
+            return INVALID_HANDLE_VALUE;
+
         // Set CBUS to output all 0s
         status = FT_SetBitMode(hDevice, 0xF0, CBUS_BITBANG);
+        if (status != FT_OK)
+            return INVALID_HANDLE_VALUE;
+
+        bufsize = 4096;
     }
-
-    // Set 8 data bits, 1 stop bit and no parity
-    status = FT_SetBaudRate(hDevice, dwBaud);
-    if (status != FT_OK)
-        return INVALID_HANDLE_VALUE;
-
-    status = FT_SetDataCharacteristics
-        (hDevice, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE);
-    if (status != FT_OK)
-        return INVALID_HANDLE_VALUE;
 
     status = FT_SetLatencyTimer(hDevice, 2);
     if (status != FT_OK)
@@ -120,14 +128,11 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
     if (status != FT_OK)
         return INVALID_HANDLE_VALUE;
 
-
     return hDevice;
 }
 
 BOOL W32_CloseDevice(FT_HANDLE handle)
 {
-    // Set CBUS back to all inputs
-    FT_STATUS status = FT_SetBitMode(handle, 0x00, CBUS_BITBANG);
     return FT_Close(handle) == FT_OK;
 }
 
@@ -429,6 +434,14 @@ CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
 // Destructor
 CMainDlg::~CMainDlg()
 {
+#ifdef FTD2XX
+    DWORD dwBaud = GetDlgItemInt(m_hWnd, IDC_BAUD_RATE, NULL, FALSE);
+    if (m_hDevice && dwBaud)
+    {
+        // Set CBUS back to all inputs
+        FT_STATUS status = FT_SetBitMode(m_hDevice, 0x00, CBUS_BITBANG);
+    }
+#endif
     if (W32_CloseDevice(m_hDevice))
     {
         m_hDevice = INVALID_HANDLE_VALUE;
@@ -513,11 +526,8 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     UpdateUI();
 
     // Fill in combobox messages
-#if defined(_DEBUG)
-    FillCombo("dbgcmd.txt");
-#else
-    FillCombo("usbcmd.txt");
-#endif
+	GetPrivateProfileString(szSettings, szCmdFile, szUsbCmdTxt, szFilename, sizeof(szFilename), szProfile);
+    FillCombo(szFilename);
 
     DoClear();
     return TRUE;
