@@ -422,6 +422,8 @@ public:
     void DoSend(void);
     void FillCombo(LPCTSTR pszFilename);
     void DoClear(void);
+    void UpdateRTS(void);
+    void UpdateDTR(void);
     void GetCellRect(int col, LPCRECT pItemRect, LPRECT pCellRect);
     BOOL DrawListView(LPDRAWITEMSTRUCT lpDIS);
 };
@@ -855,6 +857,28 @@ void CMainDlg::DoClear()
 }
 
 
+void CMainDlg::UpdateRTS(void)
+{
+#ifdef FTD2XX
+    DWORD dwFunc = IsDlgButtonChecked(m_hWnd, IDC_RTS) ? SETRTS : CLRRTS;
+    FT_W32_EscapeCommFunction(m_hDevice, dwFunc);
+#else
+    DWORD dwFunc = IsDlgButtonChecked(m_hWnd, IDC_RTS) ? SETRTS : CLRRTS;
+    EscapeCommFunction(m_hDevice, dwFunc);
+#endif
+}
+
+void CMainDlg::UpdateDTR(void)
+{
+#ifdef FTD2XX
+    DWORD dwFunc = IsDlgButtonChecked(m_hWnd, IDC_DTR) ? SETDTR : CLRDTR;
+    FT_W32_EscapeCommFunction(m_hDevice, dwFunc);
+#else
+    DWORD dwFunc = IsDlgButtonChecked(m_hWnd, IDC_RTS) ? SETRTS : CLRRTS;
+    EscapeCommFunction(m_hDevice, dwFunc);
+#endif
+}
+
 BOOL CMainDlg::OnCommand(WPARAM wId)
 {
     WORD code = HIWORD(wId);
@@ -917,6 +941,12 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
             ;
         }
         return FALSE;
+    case IDC_RTS:
+        UpdateRTS();
+        break;
+    case IDC_DTR:
+        UpdateDTR();
+        break;
     }
     return TRUE;
 }
