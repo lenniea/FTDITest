@@ -30,6 +30,7 @@
 #define GET_TIME_MSEC   timeGetTime
 
 const TCHAR szSettings[] = "Settings";
+const TCHAR szTimeOut[] = "TimeOut";
 const TCHAR szHeaderBytes[] = "HeaderBytes";
 const TCHAR szTrailerBytes[] = "TrailerBytes";
 const TCHAR szLengthMSB[] = "LengthMSB";
@@ -70,7 +71,9 @@ void Log_AddItem(HWND hListView, LPVOID pBuffer, size_t count)
 }
 
 #define STR_MAX             80
+
 #define DEFAULT_TIMEOUT     1000
+UINT g_uTimeOut = DEFAULT_TIMEOUT;
 
 #ifdef FTD2XX
 
@@ -124,7 +127,7 @@ FT_HANDLE W32_OpenDevice(LPTSTR pszFile, DWORD dwBaud)
     if (status != FT_OK)
         return INVALID_HANDLE_VALUE;
 
-    status = FT_SetTimeouts(hDevice, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT);
+    status = FT_SetTimeouts(hDevice, g_uTimeOut, g_uTimeOut);
     if (status != FT_OK)
         return INVALID_HANDLE_VALUE;
 
@@ -159,7 +162,7 @@ size_t W32_ReadBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD time
     DWORD dwTotal = 0;
 
     if (timeout == 0)
-        timeout = DEFAULT_TIMEOUT;
+        timeout = g_uTimeOut;
     
     /* exit loop after timeout has occurred */
     do
@@ -256,7 +259,7 @@ FT_HANDLE W32_OpenDevice(LPTSTR szDevice, DWORD dwBaud)
                     /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDevice != INVALID_HANDLE_VALUE)
     {
-        W32_SetupCommPort(hDevice, dwBaud, DEFAULT_TIMEOUT);
+        W32_SetupCommPort(hDevice, dwBaud, g_uTimeOut);
     }
     return hDevice;
 }
@@ -286,7 +289,7 @@ size_t W32_ReadBytes(FT_HANDLE hDevice, LPVOID pBuffer, size_t count, DWORD time
     DWORD dwTotal = 0;
 
     if (timeout == 0)
-        timeout = DEFAULT_TIMEOUT;
+        timeout = g_uTimeOut;
     
     /* exit loop after timeout has occurred */
     do
@@ -485,6 +488,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
 		lstrcpy(szProfile + len - 3, "ini");
 	}
 
+	g_uTimeOut = GetPrivateProfileInt(szSettings, szTimeOut, DEFAULT_TIMEOUT, szProfile);
 	m_uHeaderBytes = GetPrivateProfileInt(szSettings, szHeaderBytes, 4, szProfile);
 	m_uTrailerBytes = GetPrivateProfileInt(szSettings, szTrailerBytes, 0, szProfile);
 	m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
@@ -564,6 +568,22 @@ void CMainDlg::UpdateUI()
     }
 }
 
+long BenchmarkRead(FT_HANDLE hDevice, LPBYTE rxbuf, size_t count, DWORD timeout)
+{
+	DWORD dwStart = GET_TIME_MSEC();
+	do
+	{
+		size_t chunk = (count < BUF_SIZE) ? count : BUF_SIZE;
+		size_t read = W32_ReadBytes(hDevice, rxbuf, chunk, timeout);
+		if (read != chunk)
+			return -1L;
+
+		count -= read;
+	}
+	while (count > 0);
+	return GET_TIME_MSEC() - dwStart;
+}
+
 void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout)
 {
     size_t written;
@@ -579,20 +599,35 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
         Log_AddItem(m_hListView, txbuf, written | LOG_SENT_FLAG);
 	}
 
-    size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
-    if (read == m_uHeaderBytes)
-    {
-        short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
-        if (length >= 0)
-        {
-			length += m_uTrailerBytes;
-			if (length > 0)
-				read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length, timeout);
-        }
-    }
-    if (m_bLog && read > 0)
+	size_t chunk = m_uHeaderBytes;
+	if (chunk >= BUF_SIZE)
 	{
-        Log_AddItem(m_hListView, rxbuf, read);
+		// 21-Dec-2016: added to measure read throughput on USB CDC device
+        TCHAR szText[STR_MAX];
+		long dwElapsed = BenchmarkRead(m_hDevice, rxbuf, chunk, timeout);
+        wsprintf(szText, "Read %u bytes=%d.%03u sec", chunk, dwElapsed / 1000, dwElapsed % 1000);
+		if (m_bLog)
+		{
+			MessageBox(m_hWnd, szText, "Benchmark", MB_ICONINFORMATION);
+		}
+	}
+	else
+	{
+		size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
+		if (read == m_uHeaderBytes && m_uLengthLSB != 0 && m_uLengthMSB != 0)
+		{
+			short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
+			if (length >= 0)
+			{
+				length += m_uTrailerBytes;
+				if (length > 0)
+					read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length, timeout);
+			}
+		}
+		if (m_bLog && read > 0)
+		{
+			Log_AddItem(m_hListView, rxbuf, read);
+		}
 	}
 }
 
