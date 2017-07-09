@@ -1,9 +1,9 @@
 #include <windows.h>
 #include "resource.h"
 #include "AppDialog.h"
-#include "ResizeDialog.h"
+#include "trace.h"
 
-PVOID pResizeState = NULL;
+#define ALIGN32(p)		(((DWORD) (p) + 3) & ~3)
 
 // Constructor
 CAppDialog::CAppDialog(HINSTANCE hInst)
@@ -11,8 +11,6 @@ CAppDialog::CAppDialog(HINSTANCE hInst)
     m_hInst = hInst;
     m_hWnd = NULL;
     LoadString(hInst, IDS_APP_NAME, m_szAppName, STR_MAX);
-
-	ResizeDialogInitialize(hInst);
 }
 
 BOOL CAppDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -65,6 +63,83 @@ void CAppDialog::SleepYield(DWORD msec)
     }
 }
 
+BOOL CAppDialog::OnGetMinMaxInfo(LPMINMAXINFO pInfo)
+{
+	pInfo->ptMinTrackSize.x = m_InitialSize.cx;
+	pInfo->ptMinTrackSize.y = m_InitialSize.cy;
+	return TRUE;
+}
+
+BOOL CAppDialog::OnSize(WPARAM wParam, LPARAM lParam)
+{
+	RECT rect;
+	SIZE newSize;
+	newSize.cx = LOWORD(lParam);
+	newSize.cy = HIWORD(lParam);
+	::GetClientRect(m_hWnd, &rect);
+	TRACE4("OnSize: new=%d x %d old=%d x %d\n", newSize.cx, newSize.cy, m_oldSize.cx, m_oldSize.cy);
+	HWND hChild = ::GetWindow(m_hWnd, GW_CHILD);
+	int count = m_pDlgTemplateEx->cDlgItems;
+	HDWP hdwp = ::BeginDeferWindowPos(count);
+	DLGITEMTEMPLATEEX* pDlgItem = m_pDlgItemsEx;
+	for (int i = 0; i < count; ++i)
+	{
+#if 0
+		RECT dlgRect;
+		dlgRect.left = pDlgItem->x;
+		dlgRect.right = dlgRect.left + pDlgItem->cx;
+		dlgRect.top = pDlgItem->y;
+		dlgRect.bottom = dlgRect.top + pDlgItem->cy;
+		MapDialogRect(m_hWnd, &dlgRect);
+#endif
+		SIZE delta;
+		delta.cx = newSize.cx - m_oldSize.cx;
+		delta.cy = newSize.cy - m_oldSize.cy;
+		::GetWindowRect(hChild, &rect);
+		::ScreenToClient(m_hWnd, (LPPOINT) &rect.left);
+		::ScreenToClient(m_hWnd, (LPPOINT) &rect.right);
+		int id = ::GetWindowLong(hChild, GWL_ID);
+		DWORD flags = pDlgItem->helpID;
+		if (flags & RESIZE_X)
+		{
+			rect.left += delta.cx;
+			rect.right += delta.cx;
+		}
+		if (flags & RESIZE_Y)
+		{
+			rect.top += delta.cy;
+			rect.bottom += delta.cy;
+		}
+		if (flags & RESIZE_W)
+		{
+			rect.right += delta.cx;
+		}
+		if (flags & RESIZE_H)
+		{
+			rect.bottom += delta.cy;
+		}
+		int x = rect.left;
+		int y = rect.top;
+		int w = rect.right - rect.left;
+		int h = rect.bottom - rect.top;
+		::DeferWindowPos(hdwp, hChild, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+		TRACE6("ReizeWhildWindows: id=%d x=%d, y=%d, w=%d, h=%d help=%u\n", id, x, y, w, h, flags);
+
+		hChild = GetNextWindow(hChild, GW_HWNDNEXT);
+		WCHAR* sptr = (WCHAR*) ALIGN32(pDlgItem + 1);
+		if(*sptr == 0xffff) sptr += 2;			// class-ordinal
+		else				while(*sptr++);		// class-string
+		if(*sptr == 0xffff) sptr += 2;			// text-ordinal
+		else				while(*sptr++);		// text-string
+		while (*sptr++);
+		pDlgItem = (DLGITEMTEMPLATEEX*) ALIGN32(sptr);
+	}
+	::EndDeferWindowPos(hdwp);
+	// Update size for next time
+	m_oldSize = newSize;
+	return TRUE;
+}
+
 void CAppDialog::OnClose()
 {
     ::EndDialog(m_hWnd, IDOK);
@@ -73,7 +148,7 @@ void CAppDialog::OnClose()
 BOOL CALLBACK AppDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CAppDialog* pDlg = (CAppDialog*) GetWindowLong(hDlg, GWL_USERDATA);
-    ResizeDialogProc(hDlg, uMsg, wParam, lParam, &pResizeState);
+	RECT rect;
 
     switch (uMsg)
     {
@@ -81,7 +156,16 @@ BOOL CALLBACK AppDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SetWindowLong(hDlg, GWL_USERDATA, lParam);
 		pDlg = (CAppDialog*) lParam;
         pDlg->m_hWnd = hDlg;
+		GetWindowRect(hDlg, &rect);
+		SIZE size;
+		size.cx = rect.right - rect.left;
+		size.cy = rect.bottom - rect.top;
+		pDlg->m_oldSize = pDlg->m_InitialSize = size;
         return pDlg->OnInitDialog(wParam, lParam);
+	case WM_GETMINMAXINFO:
+		return pDlg->OnGetMinMaxInfo((LPMINMAXINFO) lParam);
+	case WM_SIZE:
+		return pDlg->OnSize(wParam, lParam);
     case WM_CLOSE:
         pDlg->OnClose();
         DestroyWindow(hDlg);
@@ -100,8 +184,36 @@ BOOL CALLBACK AppDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return FALSE;
 }
 
+#pragma pack(pop)
+
 BOOL CAppDialog::CreateDialogBox(LPCTSTR lpszResource, HWND hParent)
 {
+	// Locate the DLGTEMPLATEEX resource
+	HRSRC hResInfo = FindResource(m_hInst, lpszResource, RT_DIALOG);
+	HGLOBAL hGlobal = ::LoadResource(m_hInst, hResInfo);
+	DLGTEMPLATEEX* pDialogEx = (DLGTEMPLATEEX*) ::LockResource(hGlobal);
+	// Compute size of DLGTEMPLATEEX including caption & font
+	WCHAR* sptr = (WCHAR*) (pDialogEx + 1);
+	// menu, class and title
+	if(*sptr == 0xffff) sptr += 2;			// menu-ordinal
+	else				while(*sptr++);		// menu-string
+	if(*sptr == 0xffff) sptr += 2;			// class-ordinal
+	else				while(*sptr++);		// class-string
+	while(*sptr++);							// null-terminated title
+
+	// If dlg includes a font
+	if (pDialogEx->style & (DS_SETFONT | DS_SHELLFONT))
+	{
+		DLGTEMPLATEEXFONT* pFont = (DLGTEMPLATEEXFONT*) sptr;
+		sptr += sizeof(DLGTEMPLATEEXFONT) / sizeof(WCHAR) - 1;
+		while(*sptr++);						// null-terminated font
+	}
+	m_pDlgItemsEx = (DLGITEMTEMPLATEEX*) ALIGN32(sptr);
+	DWORD dwSize = ((LPSTR) sptr - (LPSTR) pDialogEx) + pDialogEx->cDlgItems * sizeof(DLGITEMTEMPLATEEX);
+	// Make a copy of the DLGITEMTEMPLATEEX controls
+	m_pDlgTemplateEx = (DLGTEMPLATEEX*) malloc(dwSize); 
+	memcpy(m_pDlgTemplateEx, pDialogEx, dwSize);
+	UnlockResource(hGlobal);
     m_hWnd = CreateDialogParam(m_hInst, lpszResource, hParent, (DLGPROC)AppDialogProc, (LPARAM) this);
 	return m_hWnd != NULL;
 }
