@@ -172,10 +172,6 @@ SOURCE=.\ParseHex.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\ResizeDialog.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\Trace.c
 # End Source File
 # End Group
@@ -193,10 +189,6 @@ SOURCE=.\FTD2XX.H
 # Begin Source File
 
 SOURCE=.\ParseHex.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ResizeDialog.h
 # End Source File
 # Begin Source File
 

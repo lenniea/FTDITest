@@ -3,6 +3,11 @@
 #include "AppDialog.h"
 #include "trace.h"
 
+// Patch for older windows.h SDK header file
+#ifndef DS_FIXEDSYS
+    #define DS_FIXEDSYS         0x0008L
+#endif
+
 #define ALIGN32(p)		(((DWORD) (p) + 3) & ~3)
 
 // Constructor
@@ -202,7 +207,7 @@ BOOL CAppDialog::CreateDialogBox(LPCTSTR lpszResource, HWND hParent)
 	while(*sptr++);							// null-terminated title
 
 	// If dlg includes a font
-	if (pDialogEx->style & (DS_SETFONT | DS_SHELLFONT))
+	if (pDialogEx->style & (DS_SETFONT | DS_FIXEDSYS))
 	{
 		DLGTEMPLATEEXFONT* pFont = (DLGTEMPLATEEXFONT*) sptr;
 		sptr += sizeof(DLGTEMPLATEEXFONT) / sizeof(WCHAR) - 1;
