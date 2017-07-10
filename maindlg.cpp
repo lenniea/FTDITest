@@ -402,12 +402,12 @@ protected:
     LPBYTE m_pDataFile;
     BOOL m_bLog;
     HWND m_hProgress;
-	DWORD m_dwThreadId;
-	UINT m_uRepeat;
-	size_t m_uHeaderBytes;
-	size_t m_uTrailerBytes;
-	size_t m_uLengthMSB;
-	size_t m_uLengthLSB;
+    DWORD m_dwThreadId;
+    UINT m_uRepeat;
+    size_t m_uHeaderBytes;
+    size_t m_uTrailerBytes;
+    size_t m_uLengthMSB;
+    size_t m_uLengthLSB;
 public:
     CMainDlg(HINSTANCE hInst);
     ~CMainDlg();
@@ -438,7 +438,7 @@ CMainDlg::CMainDlg(HINSTANCE hInst) : CAppDialog(hInst)
     m_hDevice = INVALID_HANDLE_VALUE;
     m_pDataFile = NULL;
 
-	m_bLog = TRUE;
+    m_bLog = TRUE;
 }
 
 // Destructor
@@ -481,18 +481,18 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     CheckDlgButton(m_hWnd, IDC_SET_BAUD, TRUE);
     SetDlgItemInt(m_hWnd, IDC_COUNT, DEFAULT_COUNT, FALSE);
 
-	GetModuleFileName(NULL, szProfile, MAX_PATH);
-	int len = lstrlen(szProfile);
-	if (szProfile[len - 4] == '.')
-	{
-		lstrcpy(szProfile + len - 3, "ini");
-	}
+    GetModuleFileName(NULL, szProfile, MAX_PATH);
+    int len = lstrlen(szProfile);
+    if (szProfile[len - 4] == '.')
+    {
+        lstrcpy(szProfile + len - 3, "ini");
+    }
 
-	g_uTimeOut = GetPrivateProfileInt(szSettings, szTimeOut, DEFAULT_TIMEOUT, szProfile);
-	m_uHeaderBytes = GetPrivateProfileInt(szSettings, szHeaderBytes, 4, szProfile);
-	m_uTrailerBytes = GetPrivateProfileInt(szSettings, szTrailerBytes, 0, szProfile);
-	m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
-	m_uLengthLSB =  GetPrivateProfileInt(szSettings, szLengthLSB, 3, szProfile);
+    g_uTimeOut = GetPrivateProfileInt(szSettings, szTimeOut, DEFAULT_TIMEOUT, szProfile);
+    m_uHeaderBytes = GetPrivateProfileInt(szSettings, szHeaderBytes, 4, szProfile);
+    m_uTrailerBytes = GetPrivateProfileInt(szSettings, szTrailerBytes, 0, szProfile);
+    m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
+    m_uLengthLSB =  GetPrivateProfileInt(szSettings, szLengthLSB, 3, szProfile);
 
     CheckDlgButton(m_hWnd, IDC_LOG, m_bLog);
 
@@ -529,7 +529,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     UpdateUI();
 
     // Fill in combobox messages
-	GetPrivateProfileString(szSettings, szCmdFile, szUsbCmdTxt, szFilename, sizeof(szFilename), szProfile);
+    GetPrivateProfileString(szSettings, szCmdFile, szUsbCmdTxt, szFilename, sizeof(szFilename), szProfile);
     FillCombo(szFilename);
 
     DoClear();
@@ -570,18 +570,18 @@ void CMainDlg::UpdateUI()
 
 long BenchmarkRead(FT_HANDLE hDevice, LPBYTE rxbuf, size_t count, DWORD timeout)
 {
-	DWORD dwStart = GET_TIME_MSEC();
-	do
-	{
-		size_t chunk = (count < BUF_SIZE) ? count : BUF_SIZE;
-		size_t read = W32_ReadBytes(hDevice, rxbuf, chunk, timeout);
-		if (read != chunk)
-			return -1L;
+    DWORD dwStart = GET_TIME_MSEC();
+    do
+    {
+        size_t chunk = (count < BUF_SIZE) ? count : BUF_SIZE;
+        size_t read = W32_ReadBytes(hDevice, rxbuf, chunk, timeout);
+        if (read != chunk)
+            return -1L;
 
-		count -= read;
-	}
-	while (count > 0);
-	return GET_TIME_MSEC() - dwStart;
+        count -= read;
+    }
+    while (count > 0);
+    return GET_TIME_MSEC() - dwStart;
 }
 
 void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout)
@@ -595,46 +595,46 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
 #endif
     written = W32_WriteBytes(m_hDevice, txbuf, count);
     if (m_bLog && written > 0)
-	{
+    {
         Log_AddItem(m_hListView, txbuf, written | LOG_SENT_FLAG);
-	}
+    }
 
-	size_t chunk = m_uHeaderBytes;
-	if (chunk >= BUF_SIZE)
-	{
-		// 21-Dec-2016: added to measure read throughput on USB CDC device
+    size_t chunk = m_uHeaderBytes;
+    if (chunk >= BUF_SIZE)
+    {
+        // 21-Dec-2016: added to measure read throughput on USB CDC device
         TCHAR szText[STR_MAX];
-		long dwElapsed = BenchmarkRead(m_hDevice, rxbuf, chunk, timeout);
+        long dwElapsed = BenchmarkRead(m_hDevice, rxbuf, chunk, timeout);
         wsprintf(szText, "Read %u bytes=%d.%03u sec", chunk, dwElapsed / 1000, dwElapsed % 1000);
-		if (m_bLog)
-		{
-			MessageBox(m_hWnd, szText, "Benchmark", MB_ICONINFORMATION);
-		}
-	}
-	else
-	{
-		size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
-		if (read == m_uHeaderBytes && m_uLengthLSB != 0 && m_uLengthMSB != 0)
-		{
-			short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
-			if (length >= 0)
-			{
-				length += m_uTrailerBytes;
-				if (length > 0)
-					read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length, timeout);
-			}
-		}
-		if (m_bLog && read > 0)
-		{
-			Log_AddItem(m_hListView, rxbuf, read);
-		}
-	}
+        if (m_bLog)
+        {
+            MessageBox(m_hWnd, szText, "Benchmark", MB_ICONINFORMATION);
+        }
+    }
+    else
+    {
+        size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
+        if (read == m_uHeaderBytes && m_uLengthLSB != 0 && m_uLengthMSB != 0)
+        {
+            short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
+            if (length >= 0)
+            {
+                length += m_uTrailerBytes;
+                if (length > 0)
+                    read += W32_ReadBytes(m_hDevice, rxbuf + m_uHeaderBytes, length, timeout);
+            }
+        }
+        if (m_bLog && read > 0)
+        {
+            Log_AddItem(m_hListView, rxbuf, read);
+        }
+    }
 }
 
 ULONG __stdcall SendThread(LPVOID pThis)
 {
-	((CMainDlg*) pThis)->DoSend();
-	return 0;
+    ((CMainDlg*) pThis)->DoSend();
+    return 0;
 }
 
 void CMainDlg::DoSend(void)
@@ -881,11 +881,11 @@ BOOL CMainDlg::OnDrawItem(WPARAM wId, LPDRAWITEMSTRUCT lpDIS)
 
 void CMainDlg::DoClear()
 {
-	if (m_uRepeat <= 1)
-	{
-		ProgressBar_SetPos(m_hProgress, 0);
-	}
-	m_uRepeat = 0;	// Stop loop in progress
+    if (m_uRepeat <= 1)
+    {
+        ProgressBar_SetPos(m_hProgress, 0);
+    }
+    m_uRepeat = 0;  // Stop loop in progress
     ListView_DeleteAllItems(m_hListView);
     g_logindex = 0;
     g_start = GET_TIME_MSEC();
@@ -945,18 +945,18 @@ BOOL CMainDlg::OnCommand(WPARAM wId)
         UpdateUI();
         break;
     case IDC_SEND:
-		// Start separate thread to transmit/receive messages
+        // Start separate thread to transmit/receive messages
         CreateThread(NULL, /*stacksize=*/ 1000000, SendThread, this, 0/*run after creation*/, &m_dwThreadId);
         break;
     case IDC_CLEAR:
         DoClear();
         break;
-	case IDC_LOG:
-		if (code == BN_CLICKED)
-		{
-			m_bLog = IsDlgButtonChecked(m_hWnd, IDC_LOG);
-		}
-		break;
+    case IDC_LOG:
+        if (code == BN_CLICKED)
+        {
+            m_bLog = IsDlgButtonChecked(m_hWnd, IDC_LOG);
+        }
+        break;
     case IDC_DATA:
         switch (code)
         {
