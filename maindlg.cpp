@@ -458,9 +458,30 @@ CMainDlg::~CMainDlg()
 #define LIST_COLS      3
 short   msgColWidth[LIST_COLS] = { 30, 60, 20000 };
 
+const RESIZE_INFO resizeInfo[] =
+{
+	{	IDC_PORT, RESIZE_W },
+	{	IDC_SET_BAUD, RESIZE_X },
+	{	IDC_BAUD_RATE, RESIZE_X },
+	{	IDC_RTS, RESIZE_X },
+	{	IDC_OPEN_CLOSE, RESIZE_X },
+	{	IDC_DATA, RESIZE_W },
+	{	IDC_REPEAT, RESIZE_X },
+	{	IDC_COUNT, RESIZE_X },
+	{	IDC_DTR, RESIZE_X },
+	{	IDC_SEND, RESIZE_X },
+	{	IDC_LISTVIEW, RESIZE_W | RESIZE_H },
+	{	IDC_LOG, RESIZE_Y },
+	{	IDC_PROGRESS, RESIZE_Y|RESIZE_W },
+	{	IDC_CLEAR, RESIZE_X|RESIZE_Y }
+};
+
+#define RESIZE_COUNT(a)		(sizeof(a) / sizeof(RESIZE_INFO))
 
 BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
 {
+	m_iResizeCount = RESIZE_COUNT(resizeInfo);
+	m_pResizeInfo = resizeInfo;
     // Set icons
     // Attach icon to main dialog
     HICON hIcon = LoadIcon(m_hInst, MAKEINTRESOURCE (IDD_MAIN));

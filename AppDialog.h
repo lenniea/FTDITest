@@ -9,9 +9,11 @@
 #define RESIZE_W                                2
 #define RESIZE_H                                1
 
-// Opaque types for DLGTEMPLATEEX, DLGITEMTEMPLATEEX
-typedef struct dlg_template_ex DLGTEMPLATEEX;
-typedef struct dlg_item_template_ex DLGITEMTEMPLATEEX;
+typedef struct resize_info
+{
+	int id;
+	UINT flags;
+} RESIZE_INFO;
 
 class CAppDialog
 {
@@ -22,9 +24,9 @@ public:
 
     SIZE m_InitialSize;
     SIZE m_oldSize;
-    DLGTEMPLATEEX* m_pDlgTemplateEx;
-    DLGITEMTEMPLATEEX* m_pDlgItemsEx;
-
+	int m_iResizeCount;
+	const RESIZE_INFO* m_pResizeInfo;
+	
     HWND m_hWnd;
     TCHAR m_szAppName[STR_MAX];
 

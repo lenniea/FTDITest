@@ -22,11 +22,3 @@
 #define IDS_CLOSE                               40002
 #define IDS_LIST_HEADERS                        40003
 #define IDS_ERR_DRAWITEM                        40004
-
-#ifndef RESIZE_NONE
-#define RESIZE_NONE								0
-#define RESIZE_X								8
-#define RESIZE_Y								4
-#define RESIZE_W								2
-#define RESIZE_H								1
-#endif
