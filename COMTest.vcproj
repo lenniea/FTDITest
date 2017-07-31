@@ -231,6 +231,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\crc16.c"
+				>
+			</File>
+			<File
 				RelativePath="FTDITest.rc"
 				>
 				<FileConfiguration
@@ -291,26 +295,6 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="ResizeDialog.c"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath="Trace.c"
 				>
 				<FileConfiguration
@@ -340,11 +324,11 @@
 				>
 			</File>
 			<File
-				RelativePath="ParseHex.h"
+				RelativePath=".\crc16.h"
 				>
 			</File>
 			<File
-				RelativePath="ResizeDialog.h"
+				RelativePath="ParseHex.h"
 				>
 			</File>
 			<File

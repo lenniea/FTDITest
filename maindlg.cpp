@@ -4,6 +4,7 @@
 #include <tchar.h>
 #include <winsock.h>
 #include "AppDialog.h"
+#include "crc16.h"
 #include "resource.h"
 #include "ParseHex.h"
 #include "Trace.h"
@@ -35,6 +36,7 @@ const TCHAR szHeaderBytes[] = "HeaderBytes";
 const TCHAR szTrailerBytes[] = "TrailerBytes";
 const TCHAR szLengthMSB[] = "LengthMSB";
 const TCHAR szLengthLSB[] = "LengthLSB";
+const TCHAR szCRC16[] = "CRC16";
 const TCHAR szCmdFile[] = "CmdFile";
 const TCHAR szUsbCmdTxt[] = "usbcmd.txt";
 
@@ -408,6 +410,7 @@ protected:
     size_t m_uTrailerBytes;
     size_t m_uLengthMSB;
     size_t m_uLengthLSB;
+	BOOL m_bCRC16;
 public:
     CMainDlg(HINSTANCE hInst);
     ~CMainDlg();
@@ -514,6 +517,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     m_uTrailerBytes = GetPrivateProfileInt(szSettings, szTrailerBytes, 0, szProfile);
     m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
     m_uLengthLSB =  GetPrivateProfileInt(szSettings, szLengthLSB, 3, szProfile);
+	m_bCRC16 = GetPrivateProfileInt(szSettings, szCRC16, TRUE, szProfile);
 
     CheckDlgButton(m_hWnd, IDC_LOG, m_bLog);
 
@@ -614,6 +618,18 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
 #else
     PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
 #endif
+	if (m_bCRC16)
+	{
+		LPBYTE pbuf = txbuf;
+		int i = count;
+		CRC16 crc = 0;
+		while (i)
+		{
+			crc = crc16_byte(crc, *pbuf++);
+			--i;
+		}
+		count += 2;
+	}
     written = W32_WriteBytes(m_hDevice, txbuf, count);
     if (m_bLog && written > 0)
     {

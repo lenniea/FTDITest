@@ -233,6 +233,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\crc16.c"
+				>
+			</File>
+			<File
 				RelativePath="FTDITest.rc"
 				>
 				<FileConfiguration
@@ -319,6 +323,10 @@
 			>
 			<File
 				RelativePath="AppDialog.h"
+				>
+			</File>
+			<File
+				RelativePath=".\crc16.h"
 				>
 			</File>
 			<File
