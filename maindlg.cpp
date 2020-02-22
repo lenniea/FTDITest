@@ -37,6 +37,7 @@ const TCHAR szTrailerBytes[] = "TrailerBytes";
 const TCHAR szLengthMSB[] = "LengthMSB";
 const TCHAR szLengthLSB[] = "LengthLSB";
 const TCHAR szCRC16[] = "CRC16";
+const TCHAR szFlush[] = "Flush";
 const TCHAR szCmdFile[] = "CmdFile";
 const TCHAR szUsbCmdTxt[] = "usbcmd.txt";
 
@@ -411,6 +412,7 @@ protected:
     size_t m_uLengthMSB;
     size_t m_uLengthLSB;
 	BOOL m_bCRC16;
+	BOOL m_bFlush;
 public:
     CMainDlg(HINSTANCE hInst);
     ~CMainDlg();
@@ -518,6 +520,7 @@ BOOL CMainDlg::OnInitDialog(WPARAM wParam, LPARAM lParam)
     m_uLengthMSB = GetPrivateProfileInt(szSettings, szLengthMSB, 2, szProfile);
     m_uLengthLSB =  GetPrivateProfileInt(szSettings, szLengthLSB, 3, szProfile);
 	m_bCRC16 = GetPrivateProfileInt(szSettings, szCRC16, TRUE, szProfile);
+	m_bFlush = GetPrivateProfileInt(szSettings, szFlush, TRUE, szProfile);
 
     CheckDlgButton(m_hWnd, IDC_LOG, m_bLog);
 
@@ -612,12 +615,15 @@ long BenchmarkRead(FT_HANDLE hDevice, LPBYTE rxbuf, size_t count, DWORD timeout)
 void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout)
 {
     size_t written;
-    /* Flush receive buffer */
+	if (m_bFlush)
+	{
+		/* Flush receive buffer */
 #ifdef FTD2XX
-    FT_W32_PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
+		FT_W32_PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
 #else
-    PurgeComm(m_hDevice, PURGE_TXCLEAR|PURGE_RXCLEAR);
+		PurgeComm(m_hDevice, PURGE_TXCLEAR | PURGE_RXCLEAR);
 #endif
+	}
 	if (m_bCRC16)
 	{
 		LPBYTE pbuf = txbuf;
