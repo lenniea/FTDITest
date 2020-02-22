@@ -231,28 +231,12 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\crc16.c"
+				RelativePath=".\COMTest.rc"
 				>
 			</File>
 			<File
-				RelativePath="FTDITest.rc"
+				RelativePath=".\crc16.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="maindlg.cpp"

@@ -1,0 +1,147 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#define APSTUDIO_HIDDEN_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_HIDDEN_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_MAIN DIALOG DISCARDABLE  10, 10, 361, 225
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION | WS_SYSMENU | 
+    WS_THICKFRAME
+CAPTION "COM Test"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Port:",-1,4,7,16,8
+    COMBOBOX        IDC_PORT,32,5,110,160,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Baud",IDC_SET_BAUD,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,154,5,40,14
+    COMBOBOX        IDC_BAUD_RATE,200,5,50,160,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "RTS",IDC_RTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,262,
+                    5,30,14
+    PUSHBUTTON      "Open",IDC_OPEN_CLOSE,302,4,50,14
+    LTEXT           "Data:",-1,4,27,18,8
+    COMBOBOX        IDC_DATA,32,25,110,160,CBS_DROPDOWN | 
+                    CBS_DISABLENOSCROLL | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Repeat",IDC_REPEAT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,154,25,40,14
+    EDITTEXT        IDC_COUNT,200,25,50,14,ES_CENTER | ES_AUTOHSCROLL
+    CONTROL         "DTR",IDC_DTR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,262,
+                    26,30,14
+    PUSHBUTTON      "Send",IDC_SEND,302,24,50,14
+    CONTROL         "List1",IDC_LISTVIEW,"SysListView32",LVS_REPORT | 
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDRAWFIXED | 
+                    WS_BORDER | WS_TABSTOP,4,44,350,156
+    CONTROL         "Log",IDC_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,
+                    209,31,10
+    CONTROL         "Progress1",IDC_PROGRESS,"msctls_progress32",PBS_SMOOTH | 
+                    WS_BORDER,40,209,250,10
+    PUSHBUTTON      "Clear",IDC_CLEAR,303,206,50,14
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""windows.h""\r\n"
+    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST ""Res/COMTest.exe.manifest""\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDD_MAIN                ICON    DISCARDABLE     "res/FTDITest.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_MAIN, DIALOG
+    BEGIN
+        RIGHTMARGIN, 360
+        BOTTOMMARGIN, 218
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_APP_NAME            "COM Test"
+    IDS_OPEN                "Open"
+    IDS_CLOSE               "Close"
+    IDS_LIST_HEADERS        "#\tTime\tMessage"
+    IDS_ERR_DRAWITEM        "OnDrawItem ERROR id=%04x"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "Res/COMTest.exe.manifest"
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
