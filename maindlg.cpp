@@ -20,7 +20,7 @@
 #define ProgressBar_SetRange(hwnd,lo,hi)  SendMessage(hwnd, PBM_SETRANGE, 0, MAKELONG(lo,hi))
 #define ProgressBar_SetPos(hwnd,pos)      SendMessage(hwnd, PBM_SETPOS, pos, 0L)
 
-#define BUF_SIZE        16384
+#define BUF_SIZE        65536
 
 #define DEFAULT_COUNT   100
 #define MAX_COUNT       1024
@@ -463,7 +463,7 @@ CMainDlg::~CMainDlg()
 }
 
 #define LIST_COLS      3
-short   msgColWidth[LIST_COLS] = { 30, 60, 20000 };
+int   msgColWidth[LIST_COLS] = { 30, 60, 229000 };
 
 const RESIZE_INFO resizeInfo[] =
 {
@@ -818,9 +818,11 @@ void CMainDlg::GetCellRect(int col, LPCRECT pItemRect, LPRECT pCellRect)
 #define LIGHT_RED   RGB(255,224,224)
 #define LIGHT_GRN   RGB(224,255,224)
 
+#define LINE_MAX	16384
+
 BOOL CMainDlg::DrawListView(LPDRAWITEMSTRUCT lpDIS)
 {
-    char szText[BUF_SIZE * 4];
+    char szText[LINE_MAX * 5 + 1];
     int count;
     int iItem = lpDIS->itemID;
     LIST_ITEM* pLog = &g_log_buf[iItem % MAX_COUNT];
@@ -873,8 +875,8 @@ BOOL CMainDlg::DrawListView(LPDRAWITEMSTRUCT lpDIS)
         case 2:
             iFormat = DT_FLAGS | DT_LEFT;
             count = pLog->count & LOG_COUNT_MASK;
-            if (count > BUF_SIZE)
-                count = BUF_SIZE;
+            if (count > LINE_MAX)
+                count = LINE_MAX;
             i = 0;
             while (i < count)
             {
