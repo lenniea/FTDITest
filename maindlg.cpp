@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <windowsx.h>
+#include <stdio.h>
 #include <commctrl.h>
 #include <tchar.h>
 #include <winsock.h>
@@ -428,7 +429,7 @@ public:
     void EnableControls(BOOL flag);
     void UpdateUI();
 
-    void CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout);
+    size_t CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout);
     void DoSend(void);
     void FillCombo(LPCTSTR pszFilename);
     void DoClear(void);
@@ -479,6 +480,7 @@ const RESIZE_INFO resizeInfo[] =
 	{	IDC_SEND, RESIZE_X },
 	{	IDC_LISTVIEW, RESIZE_W | RESIZE_H },
 	{	IDC_LOG, RESIZE_Y },
+	{	IDC_CAPTURE, RESIZE_Y|RESIZE_W },
 	{	IDC_PROGRESS, RESIZE_Y|RESIZE_W },
 	{	IDC_CLEAR, RESIZE_X|RESIZE_Y }
 };
@@ -615,9 +617,10 @@ long BenchmarkRead(FT_HANDLE hDevice, LPBYTE rxbuf, size_t count, DWORD timeout)
     return GET_TIME_MSEC() - dwStart;
 }
 
-void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout)
+size_t CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t length, DWORD timeout)
 {
     size_t written;
+	size_t read = 0;
 	if (m_bFlush)
 	{
 		/* Flush receive buffer */
@@ -661,7 +664,7 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
     }
     else
     {
-        size_t read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
+        read = W32_ReadBytes(m_hDevice, rxbuf, m_uHeaderBytes, timeout);
         if (read == m_uHeaderBytes && m_uLengthLSB != 0 && m_uLengthMSB != 0)
         {
             short length = rxbuf[m_uLengthMSB] * 256 + rxbuf[m_uLengthLSB];
@@ -677,6 +680,7 @@ void CMainDlg::CommandResponse(LPBYTE txbuf, size_t count, LPBYTE rxbuf, size_t 
             Log_AddItem(m_hListView, rxbuf, read);
         }
     }
+	return read;
 }
 
 ULONG __stdcall SendThread(LPVOID pThis)
@@ -713,13 +717,23 @@ void CMainDlg::DoSend(void)
         {
             BOOL bOK;
             m_uRepeat = IsDlgButtonChecked(m_hWnd, IDC_REPEAT) ? GetDlgItemInt(m_hWnd, IDC_COUNT, &bOK, FALSE) : 1U;
+			BOOL bCapture = IsDlgButtonChecked(m_hWnd, IDC_CAPTURE);
             const DWORD dwStart = GET_TIME_MSEC();
             ProgressBar_SetRange(m_hProgress, 0, m_uRepeat);
             for (UINT loop = 0; loop < m_uRepeat; ++loop)
             {
-                CommandResponse(txbuf, count, rxbuf, BUF_SIZE, 0);
+                size_t read = CommandResponse(txbuf, count, rxbuf, BUF_SIZE, 0);
                 ProgressBar_SetPos(m_hProgress, loop + 1);
                 UpdateWindow(m_hProgress);
+				if (bCapture) {
+					TCHAR szFilename[MAX_PATH];
+					wsprintf(szFilename, "Data%04u.bin", loop);
+					FILE* fp = fopen(szFilename, "wb");
+					if (fp != NULL) {
+						fwrite(rxbuf, read, 1, fp);
+						fclose(fp);
+					}
+				}
             }
             if (m_uRepeat > 1)
             {

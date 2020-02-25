@@ -58,8 +58,10 @@ BEGIN
                     WS_BORDER | WS_TABSTOP,4,44,350,156
     CONTROL         "Log",IDC_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,
                     209,31,10
+    CONTROL         "Capture",IDC_CAPTURE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,40,
+                    209,51, 10
     CONTROL         "Progress1",IDC_PROGRESS,"msctls_progress32",PBS_SMOOTH | 
-                    WS_BORDER,40,209,250,10
+                    WS_BORDER,90,209,190,10
     PUSHBUTTON      "Clear",IDC_CLEAR,303,206,50,14
 END
 

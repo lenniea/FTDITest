@@ -17,6 +17,7 @@
 #define IDC_PROGRESS                    1011
 #define IDC_RTS                         1012
 #define IDC_DTR                         1013
+#define IDC_CAPTURE                     1014
 #define IDS_APP_NAME                    40000
 #define IDS_OPEN                        40001
 #define IDS_CLOSE                       40002
