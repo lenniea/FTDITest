@@ -671,7 +671,8 @@ BOOL CMainDlg::DrawView(LPDRAWITEMSTRUCT lpDIS)
 		int height = lpDIS->rcItem.bottom - lpDIS->rcItem.top;
 		int x = lpDIS->rcItem.left;
 		int y = lpDIS->rcItem.top;
-		::StretchDIBits(hDC, x, y, width, height, 0, 0, bmpFile.bmiHeader.biWidth, bmpFile.bmiHeader.biHeight, pixmap, (BITMAPINFO*) &bmpFile.bmiHeader, 0, SRCCOPY);
+		::StretchDIBits(hDC, x, y, width, height, 0, 0, bmpFile.bmiHeader.biWidth, bmpFile.bmiHeader.biHeight,
+			pixmap, (BITMAPINFO*) &bmpFile.bmiHeader, DIB_RGB_COLORS, SRCCOPY);
 		free(pixmap);
 	}
 
