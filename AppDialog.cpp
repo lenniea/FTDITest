@@ -129,55 +129,58 @@ BOOL CAppDialog::OnSize(WPARAM wParam, LPARAM lParam)
     newSize.cx = LOWORD(lParam);
     newSize.cy = HIWORD(lParam);
     ::GetClientRect(m_hWnd, &rect);
-    TRACE4("OnSize: new=%d x %d old=%d x %d\n", newSize.cx, newSize.cy, m_oldSize.cx, m_oldSize.cy);
-    HWND hChild = ::GetWindow(m_hWnd, GW_CHILD);
-    int count = m_iResizeCount;
-    SIZE delta;
-    delta.cx = newSize.cx - m_oldSize.cx;
-    delta.cy = newSize.cy - m_oldSize.cy;
+	if (newSize.cx > 0 && newSize.cy > 0)
+	{
+		HWND hChild = ::GetWindow(m_hWnd, GW_CHILD);
+		int count = m_iResizeCount;
+		SIZE delta;
+		TRACE4("OnSize: new=%d x %d old=%d x %d\n", newSize.cx, newSize.cy, m_oldSize.cx, m_oldSize.cy);
+		delta.cx = newSize.cx - m_oldSize.cx;
+		delta.cy = newSize.cy - m_oldSize.cy;
 
-    HDWP hdwp = ::BeginDeferWindowPos(count);
+		HDWP hdwp = ::BeginDeferWindowPos(count);
 
-    for (int i = 0; i < count; ++i)
-    {
-		const RESIZE_INFO* pResizeInfo = m_pResizeInfo + i;
-		int id = pResizeInfo->id;
-		UINT flags = pResizeInfo->flags;
-		HWND hChild = GetDlgItem(m_hWnd, id);
-		if (hChild != NULL)
+		for (int i = 0; i < count; ++i)
 		{
-			::GetWindowRect(hChild, &rect);
-			::ScreenToClient(m_hWnd, (LPPOINT) &rect.left);
-			::ScreenToClient(m_hWnd, (LPPOINT) &rect.right);
-			if (flags & RESIZE_X)
+			const RESIZE_INFO* pResizeInfo = m_pResizeInfo + i;
+			int id = pResizeInfo->id;
+			UINT flags = pResizeInfo->flags;
+			HWND hChild = GetDlgItem(m_hWnd, id);
+			if (hChild != NULL)
 			{
-				rect.left += delta.cx;
-				rect.right += delta.cx;
+				::GetWindowRect(hChild, &rect);
+				::ScreenToClient(m_hWnd, (LPPOINT) &rect.left);
+				::ScreenToClient(m_hWnd, (LPPOINT) &rect.right);
+				if (flags & RESIZE_X)
+				{
+					rect.left += delta.cx;
+					rect.right += delta.cx;
+				}
+				if (flags & RESIZE_Y)
+				{
+					rect.top += delta.cy;
+					rect.bottom += delta.cy;
+				}
+				if (flags & RESIZE_W)
+				{
+					rect.right += delta.cx;
+				}
+				if (flags & RESIZE_H)
+				{
+					rect.bottom += delta.cy;
+				}
+				int x = rect.left;
+				int y = rect.top;
+				int w = rect.right - rect.left;
+				int h = rect.bottom - rect.top;
+				::DeferWindowPos(hdwp, hChild, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+				TRACE6("ReizeWhildWindows: id=%d x=%d, y=%d, w=%d, h=%d help=%u\n", id, x, y, w, h, flags);
 			}
-			if (flags & RESIZE_Y)
-			{
-				rect.top += delta.cy;
-				rect.bottom += delta.cy;
-			}
-			if (flags & RESIZE_W)
-			{
-				rect.right += delta.cx;
-			}
-			if (flags & RESIZE_H)
-			{
-				rect.bottom += delta.cy;
-			}
-			int x = rect.left;
-			int y = rect.top;
-			int w = rect.right - rect.left;
-			int h = rect.bottom - rect.top;
-			::DeferWindowPos(hdwp, hChild, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
-			TRACE6("ReizeWhildWindows: id=%d x=%d, y=%d, w=%d, h=%d help=%u\n", id, x, y, w, h, flags);
 		}
-    }
-    ::EndDeferWindowPos(hdwp);
-    // Update size for next time
-    m_oldSize = newSize;
+		::EndDeferWindowPos(hdwp);
+		// Update size for next time
+		m_oldSize = newSize;
+	}
     return TRUE;
 }
 
