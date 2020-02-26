@@ -59,7 +59,6 @@ protected:
     void FillCombo(LPCTSTR pszFilename);
     void ClearLog(void);
     void GetCellRect(int col, LPCRECT pItemRect, LPRECT pCellRect);
-    BOOL DrawListView(LPDRAWITEMSTRUCT lpDIS);
 };
 
 #endif // __APP_DIALOG_H__
