@@ -604,6 +604,7 @@ void CMainDlg::ReadBinaryFile(LPCTSTR pszFilename)
 {
     HANDLE hFile = CreateFile(pszFilename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
                        /* security=*/ NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	m_dwDataSize = 0;
     if (hFile != INVALID_HANDLE_VALUE)
     {
         DWORD dwSize = GetFileSize(hFile, NULL);
@@ -661,19 +662,21 @@ BOOL CMainDlg::DrawView(LPDRAWITEMSTRUCT lpDIS)
     COLORREF oldText = SetTextColor(hDC, rgbText);
     
     // Flat Field image
-	memcpy(m_image, m_rxbuf, pixels * sizeof(uint16_t));
-	ffc_offset((uint16_t*) m_image, (uint16_t*) m_pDataFile, pixels);
+	if (pixels && m_pDataFile != NULL) {
+		memcpy(m_image, m_rxbuf, pixels * sizeof(uint16_t));
+		ffc_offset((uint16_t*) m_image, (uint16_t*) m_pDataFile, pixels);
 
-	uint8_t* pixmap = raw2bmp((uint16_t*) m_image, pixels, LANDSCAPE, &bmpFile);
-	if (pixmap)
-	{
-		int width = lpDIS->rcItem.right - lpDIS->rcItem.left;
-		int height = lpDIS->rcItem.bottom - lpDIS->rcItem.top;
-		int x = lpDIS->rcItem.left;
-		int y = lpDIS->rcItem.top;
-		::StretchDIBits(hDC, x, y, width, height, 0, 0, bmpFile.bmiHeader.biWidth, bmpFile.bmiHeader.biHeight,
-			pixmap, (BITMAPINFO*) &bmpFile.bmiHeader, DIB_RGB_COLORS, SRCCOPY);
-		free(pixmap);
+		uint8_t* pixmap = raw2bmp((uint16_t*) m_image, pixels, LANDSCAPE, &bmpFile);
+		if (pixmap)
+		{
+			int width = lpDIS->rcItem.right - lpDIS->rcItem.left;
+			int height = lpDIS->rcItem.bottom - lpDIS->rcItem.top;
+			int x = lpDIS->rcItem.left;
+			int y = lpDIS->rcItem.top;
+			::StretchDIBits(hDC, x, y, width, height, 0, 0, bmpFile.bmiHeader.biWidth, bmpFile.bmiHeader.biHeight,
+				pixmap, (BITMAPINFO*) &bmpFile.bmiHeader, DIB_RGB_COLORS, SRCCOPY);
+			free(pixmap);
+		}
 	}
 
     // Restore DC
